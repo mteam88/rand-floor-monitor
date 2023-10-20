@@ -76,6 +76,10 @@ fn get_log(log: FragmentNftFilter, meta: LogMeta) -> String {
         let flooring_link = format!("https://www.flooring.io/nft-details/{:#x}/{}", log.collection, token_id);
         let flooring_link = format!("\n<a href=\"{}\">flooring: {}</a>", flooring_link, token_id);
         out.push_str(&flooring_link);
+        
+        let opensea_pro_link = format!("https://pro.opensea.io/nft/{:#x}/{}", log.collection, token_id);
+        let opensea_pro_link = format!("\n<a href=\"{}\">opensea pro: {}</a>", opensea_pro_link, token_id);
+        out.push_str(&opensea_pro_link);
     }
     
     out
