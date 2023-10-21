@@ -2374,6 +2374,8 @@ version = "0.1.0"
 dependencies = [
  "dotenv",
  "ethers",
+ "reqwest",
+ "serde_json",
  "teloxide",
  "tokio",
 ]
