@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 async fn get_client() -> Provider<Ws> {
-    Provider::<Ws>::connect("wss://mainnet.infura.io/ws/v3/c60b0bb42f8a4c6481ecd229eddaca27")
+    Provider::<Ws>::connect(dotenv::var("RPC").unwrap())
         .await
         .unwrap()
 }
@@ -115,7 +115,7 @@ async fn get_valuation(collection: String, token_id: U256) -> String {
                 .get(url)
                 .header(
                     reqwest::header::AUTHORIZATION,
-                    "Token 6d3b85e2e7d3679c55dedc0f2b21ef2a72018061",
+                    dotenv::var("DEEP_API_KEY").unwrap(),
                 )
                 .header("accept", "application/json");
 
@@ -139,7 +139,7 @@ async fn get_valuation(collection: String, token_id: U256) -> String {
                 currency
             )
         }
-        None => format! {"Collection is not on DeepNFTValue"},
+        None => format! {"\nCollection is not on DeepNFTValue ):"},
     };
 
     details
@@ -169,7 +169,7 @@ async fn slug(collection: &String) -> Option<String> {
         "azuki".to_string(),
     );
     collection_slugs.insert(
-        "0x8821BeE2ba0dF28761AffF119D66390D594CD280".to_string(),
+        "0x8821bee2ba0df28761afff119d66390d594cd280".to_string(),
         "degods".to_string(),
     );
 
