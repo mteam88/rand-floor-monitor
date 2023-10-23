@@ -1,10 +1,11 @@
 use ethers::{
     contract::{abigen, Contract},
     core::types::ValueOrArray,
+    prelude::LogMeta,
     providers::{Provider, StreamExt, Ws},
-    prelude::LogMeta, types::U256
+    types::U256,
 };
-use std::{error::Error, sync::Arc, collections::HashMap};
+use std::{collections::HashMap, error::Error, sync::Arc};
 
 use teloxide::prelude::*;
 
@@ -28,9 +29,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Build an Event by type. We are not tied to a contract instance. We use builder functions to
     // refine the event filter
     let event = Contract::event_of_type::<FragmentNftFilter>(client)
-        .address(ValueOrArray::Array(vec![
-            FLOORING.parse()?,
-        ]));
+        .address(ValueOrArray::Array(vec![FLOORING.parse()?]));
 
     let mut stream = event.subscribe_with_meta().await?;
 
@@ -57,14 +56,20 @@ async fn send_to_telegram(log: FragmentNftFilter, meta: LogMeta) {
     let bot = Bot::new(dotenv::var("TELEGRAM_BOT_TOKEN").unwrap());
     // set parsemode to html
     let bot = bot.parse_mode(teloxide::types::ParseMode::Html);
-    bot.send_message("@flooring_monitor".to_string(), get_log(log, meta).await).send().await.unwrap();
+    bot.send_message("@flooring_monitor".to_string(), get_log(log, meta).await)
+        .send()
+        .await
+        .unwrap();
 }
 
 async fn get_log(log: FragmentNftFilter, meta: LogMeta) -> String {
     let mut out: String = "".to_string();
     // create a link to the transaction on etherscan
     let etherscan_link = format!("https://etherscan.io/tx/{:#x}", meta.transaction_hash);
-    let etherscan_link = format!("<a href=\"{}\">{:#x}</a>", etherscan_link, meta.transaction_hash);
+    let etherscan_link = format!(
+        "<a href=\"{}\">{:#x}</a>",
+        etherscan_link, meta.transaction_hash
+    );
     out.push_str(&etherscan_link);
 
     // create links for each token id
@@ -73,59 +78,100 @@ async fn get_log(log: FragmentNftFilter, meta: LogMeta) -> String {
         let blur_link = format!("\n\n<a href=\"{}\">blur: {}</a>", blur_link, token_id);
         out.push_str(&blur_link);
 
-        let flooring_link = format!("https://www.flooring.io/nft-details/{:#x}/{}", log.collection, token_id);
+        let flooring_link = format!(
+            "https://www.flooring.io/nft-details/{:#x}/{}",
+            log.collection, token_id
+        );
         let flooring_link = format!("\n<a href=\"{}\">flooring: {}</a>", flooring_link, token_id);
         out.push_str(&flooring_link);
-        
-        let opensea_pro_link = format!("https://pro.opensea.io/nft/{:#x}/{}", log.collection, token_id);
-        let opensea_pro_link = format!("\n<a href=\"{}\">opensea pro: {}</a>", opensea_pro_link, token_id);
+
+        let opensea_pro_link = format!(
+            "https://pro.opensea.io/nft/{:#x}/{}",
+            log.collection, token_id
+        );
+        let opensea_pro_link = format!(
+            "\n<a href=\"{}\">opensea pro: {}</a>",
+            opensea_pro_link, token_id
+        );
         out.push_str(&opensea_pro_link);
 
         let valuation = get_valuation(format!("{:#x}", log.collection), token_id).await;
         out.push_str(&format!("{}", valuation));
     }
-    
+
     out
 }
 
 async fn get_valuation(collection: String, token_id: U256) -> String {
-    // use deepnftvalue api 
+    let details = match slug(&collection).await {
+        Some(slug) => {
+            // use deepnftvalue api
 
-    let client = reqwest::Client::new();
+            let client = reqwest::Client::new();
 
-    let url = format!{"https://api.deepnftvalue.com/v1/tokens/{}/{}", slug(&collection).await, token_id};
+            let url = format! {"https://api.deepnftvalue.com/v1/tokens/{}/{}", slug, token_id};
 
-    let req = client
-        .get(url)
-        .header(reqwest::header::AUTHORIZATION, "Token 6d3b85e2e7d3679c55dedc0f2b21ef2a72018061")
-        .header("accept", "application/json");
+            let req = client
+                .get(url)
+                .header(
+                    reqwest::header::AUTHORIZATION,
+                    "Token 6d3b85e2e7d3679c55dedc0f2b21ef2a72018061",
+                )
+                .header("accept", "application/json");
 
-    let res = req.send().await.unwrap();
-        
+            let res = req.send().await.unwrap();
 
-    // get json from response
-    let json = res.json::<serde_json::Value>().await.unwrap();
-    let valuation = json["valuation"].as_object().unwrap();
+            // get json from response
+            let json = res.json::<serde_json::Value>().await.unwrap();
+            let valuation = json["valuation"].as_object().unwrap();
 
-    // get valuation.price from json
-    let price = valuation["price"].as_str().unwrap();
-    // get valuation.currency from json
-    let currency = valuation["currency"].as_str().unwrap();
+            // get valuation.price from json
+            let price = valuation["price"].as_str().unwrap();
+            // get valuation.currency from json
+            let currency = valuation["currency"].as_str().unwrap();
 
-    let details_url = format!{"https://deepnftvalue.com/asset/{}/{}", slug(&collection).await, token_id};
+            // create link to deepnftvalue
 
-    format!("\n<a href=\"{}\">DeepNFTValue: {} {}</a>", details_url, price, currency)
-    
+            format!(
+                "\n<a href=\"{}\">DeepNFTValue: {} {}</a>",
+                format! {"https://deepnftvalue.com/asset/{}/{}", slug, token_id},
+                price,
+                currency
+            )
+        }
+        None => format! {"Collection is not on DeepNFTValue"},
+    };
+
+    details
 }
 
-async fn slug(collection: &String) -> String {
+async fn slug(collection: &String) -> Option<String> {
     // hashmap of collection addresses to slugs
     let mut collection_slugs: HashMap<String, String> = HashMap::new();
-    collection_slugs.insert("0xb6a37b5d14d502c3ab0ae6f3a0e058bc9517786e".to_string(), "azukielementals".to_string());
-    collection_slugs.insert("0xbd3531da5cf5857e7cfaa92426877b022e612cf8".to_string(), "pudgypenguins".to_string());
-    collection_slugs.insert("0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d".to_string(), "boredapeyachtclub".to_string());
-    collection_slugs.insert("0xfd1b0b0dfa524e1fd42e7d51155a663c581bbd50".to_string(), "y00ts".to_string());
+    collection_slugs.insert(
+        "0xb6a37b5d14d502c3ab0ae6f3a0e058bc9517786e".to_string(),
+        "azukielementals".to_string(),
+    );
+    collection_slugs.insert(
+        "0xbd3531da5cf5857e7cfaa92426877b022e612cf8".to_string(),
+        "pudgypenguins".to_string(),
+    );
+    collection_slugs.insert(
+        "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d".to_string(),
+        "boredapeyachtclub".to_string(),
+    );
+    collection_slugs.insert(
+        "0xfd1b0b0dfa524e1fd42e7d51155a663c581bbd50".to_string(),
+        "y00ts".to_string(),
+    );
+    collection_slugs.insert(
+        "0xed5af388653567af2f388e6224dc7c4b3241c544".to_string(),
+        "azuki".to_string(),
+    );
+    collection_slugs.insert(
+        "0x8821BeE2ba0dF28761AffF119D66390D594CD280".to_string(),
+        "degods".to_string(),
+    );
 
-    collection_slugs.get(collection).unwrap().to_string()
-
+    collection_slugs.get(collection).map(|slug| slug.to_string())
 }
