@@ -29,6 +29,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Build an Event by type. We are not tied to a contract instance. We use builder functions to
     // refine the event filter
     let event = Contract::event_of_type::<FragmentNftFilter>(client)
+        // .from_block(18413801)
         .address(ValueOrArray::Array(vec![FLOORING.parse()?]));
 
     let mut stream = event.subscribe_with_meta().await?;
@@ -71,6 +72,12 @@ async fn get_log(log: FragmentNftFilter, meta: LogMeta) -> String {
         etherscan_link, meta.transaction_hash
     );
     out.push_str(&etherscan_link);
+
+    let collection_name = match slug(&format!("{:#x}", log.collection)).await {
+        Some(slug) => format! {"\nCollection: {}", slug},
+        None => format! {"\nCollection: {:#x}", log.collection},
+    };
+    out.push_str(&collection_name);
 
     // create links for each token id
     for token_id in log.token_ids {
