@@ -154,44 +154,48 @@ async fn get_valuation(collection: String, token_id: U256) -> String {
 
 async fn slug(collection: &String) -> Option<String> {
     // hashmap of collection addresses to slugs
-    let mut collection_slugs: HashMap<String, String> = HashMap::new();
-    collection_slugs.insert(
-        "0xb6a37b5d14d502c3ab0ae6f3a0e058bc9517786e".to_string(),
-        "azukielementals".to_string(),
-    );
-    collection_slugs.insert(
-        "0xbd3531da5cf5857e7cfaa92426877b022e612cf8".to_string(),
-        "pudgypenguins".to_string(),
-    );
-    collection_slugs.insert(
-        "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d".to_string(),
-        "boredapeyachtclub".to_string(),
-    );
-    collection_slugs.insert(
-        "0xfd1b0b0dfa524e1fd42e7d51155a663c581bbd50".to_string(),
-        "y00ts".to_string(),
-    );
-    collection_slugs.insert(
-        "0xed5af388653567af2f388e6224dc7c4b3241c544".to_string(),
-        "azuki".to_string(),
-    );
-    collection_slugs.insert(
-        "0x8821bee2ba0df28761afff119d66390d594cd280".to_string(),
-        "degods".to_string(),
-    );
-    collection_slugs.insert(
-        "0x49cf6f5d44e70224e2e23fdcdd2c053f30ada28b".to_string(),
-        "clonex".to_string(),
-    );
-    collection_slugs.insert(
-        "0x60e4d786628fea6478f785a6d7e704777c86a7c6".to_string(),
-        "mutant-ape-yacht-club".to_string(),
-    );
-    collection_slugs.insert(
-        "0x8a90cab2b38dba80c64b7734e58ee1db38b8992e".to_string(),
-        "doodles-official".to_string(),
-    );
-    
+    let collection_slugs: HashMap<String, String> = {
+        let mut inner = HashMap::new();
+        inner.insert(
+            "0xb6a37b5d14d502c3ab0ae6f3a0e058bc9517786e".to_string(),
+            "azukielementals".to_string(),
+        );
+        inner.insert(
+            "0xbd3531da5cf5857e7cfaa92426877b022e612cf8".to_string(),
+            "pudgypenguins".to_string(),
+        );
+        inner.insert(
+            "0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d".to_string(),
+            "boredapeyachtclub".to_string(),
+        );
+        inner.insert(
+            "0xfd1b0b0dfa524e1fd42e7d51155a663c581bbd50".to_string(),
+            "y00ts".to_string(),
+        );
+        inner.insert(
+            "0xed5af388653567af2f388e6224dc7c4b3241c544".to_string(),
+            "azuki".to_string(),
+        );
+        inner.insert(
+            "0x8821bee2ba0df28761afff119d66390d594cd280".to_string(),
+            "degods".to_string(),
+        );
+        inner.insert(
+            "0x49cf6f5d44e70224e2e23fdcdd2c053f30ada28b".to_string(),
+            "clonex".to_string(),
+        );
+        inner.insert(
+            "0x60e4d786628fea6478f785a6d7e704777c86a7c6".to_string(),
+            "mutant-ape-yacht-club".to_string(),
+        );
+        inner.insert(
+            "0x8a90cab2b38dba80c64b7734e58ee1db38b8992e".to_string(),
+            "doodles-official".to_string(),
+        );
+        inner
+    };
 
-    collection_slugs.get(collection).map(|slug| slug.to_string())
+    collection_slugs
+        .get(collection)
+        .map(|slug| slug.to_string())
 }
