@@ -179,6 +179,19 @@ async fn slug(collection: &String) -> Option<String> {
         "0x8821bee2ba0df28761afff119d66390d594cd280".to_string(),
         "degods".to_string(),
     );
+    collection_slugs.insert(
+        "0x49cf6f5d44e70224e2e23fdcdd2c053f30ada28b".to_string(),
+        "clonex".to_string(),
+    );
+    collection_slugs.insert(
+        "0x60e4d786628fea6478f785a6d7e704777c86a7c6".to_string(),
+        "mutant-ape-yacht-club".to_string(),
+    );
+    collection_slugs.insert(
+        "0x8a90cab2b38dba80c64b7734e58ee1db38b8992e".to_string(),
+        "doodles-official".to_string(),
+    );
+    
 
     collection_slugs.get(collection).map(|slug| slug.to_string())
 }
