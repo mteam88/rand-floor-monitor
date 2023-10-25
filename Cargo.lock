@@ -1609,6 +1609,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "indoc"
+version = "2.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e186cfbae8084e513daff4240b4797e342f988cecda4fb6c939150f96315fd8"
+
+[[package]]
 name = "inout"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2374,6 +2380,7 @@ version = "0.1.0"
 dependencies = [
  "dotenv",
  "ethers",
+ "indoc",
  "reqwest",
  "serde_json",
  "teloxide",

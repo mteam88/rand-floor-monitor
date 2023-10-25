@@ -2,7 +2,7 @@ use ethers::{
     contract::{abigen, Contract},
     core::types::ValueOrArray,
     prelude::LogMeta,
-    providers::{Provider, StreamExt, Ws, Http},
+    providers::{Http, Provider, StreamExt, Ws},
 };
 use teloxide::prelude::*;
 
@@ -68,9 +68,8 @@ async fn get_wss_client() -> Provider<Ws> {
 }
 
 async fn get_http_client() -> Provider<Http> {
-    Provider::<Http>::try_from(
-        dotenv::var("HTTP_RPC").unwrap().as_str()
-    ).expect("could not instantiate HTTP Provider")
+    Provider::<Http>::try_from(dotenv::var("HTTP_RPC").unwrap().as_str())
+        .expect("could not instantiate HTTP Provider")
 }
 
 async fn send_to_telegram(log: FragmentNftFilter, meta: LogMeta) {
@@ -81,7 +80,7 @@ async fn send_to_telegram(log: FragmentNftFilter, meta: LogMeta) {
     match bot
         .send_message(
             "@flooring_monitor".to_string(),
-            message::get_message(log, meta).await,
+            message::Message::default().fill_message(log, meta).await.to_string(),
         )
         .send()
         .await
