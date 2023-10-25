@@ -28,9 +28,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Build an Event by type. We are not tied to a contract instance. We use builder functions to
     // refine the event filter
-    let event = Contract::event_of_type::<FragmentNftFilter>(client)
-//        .from_block(18429198)
+    let mut event = Contract::event_of_type::<FragmentNftFilter>(client)
         .address(ValueOrArray::Array(vec![FLOORING.parse()?]));
+
+    match dotenv::var("STARTING_BLOCK").unwrap().parse::<u64>().unwrap() {
+        0 => {
+            println!("Starting from latest block");
+        }
+        block => {
+            println!("Starting from block {}", block);
+            event = event.from_block(block);
+        }
+    }
 
     let mut stream = event.subscribe_with_meta().await?;
 
