@@ -2,7 +2,7 @@ use ethers::{
     contract::{abigen, Contract},
     core::types::ValueOrArray,
     prelude::LogMeta,
-    providers::{Provider, StreamExt, Ws},
+    providers::{Provider, StreamExt, Ws, Http},
 };
 use teloxide::prelude::*;
 
@@ -14,6 +14,7 @@ abigen!(
     FlooringInterface,
     r#"[
         event FragmentNft(address indexed operator, address indexed onBehalfOf, address indexed collection, uint256[] tokenIds)
+        function collectionInfo(address collection) external view returns (address fragmentToken, uint256 freeNftLength, uint64 lastUpdatedBucket, uint64 nextKeyId, uint64 activeSafeBoxCnt, uint64 infiniteCnt, uint64 nextActivityId)
     ]"#,
 );
 
@@ -24,7 +25,7 @@ const FLOORING: &str = "0x3eb879cc9a0Ef4C6f1d870A40ae187768c278Da2";
 /// by address.
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let client = get_client().await;
+    let client = get_wss_client().await;
     let client = Arc::new(client);
 
     // Build an Event by type. We are not tied to a contract instance. We use builder functions to
@@ -60,10 +61,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn get_client() -> Provider<Ws> {
-    Provider::<Ws>::connect(dotenv::var("RPC").unwrap())
+async fn get_wss_client() -> Provider<Ws> {
+    Provider::<Ws>::connect(dotenv::var("WSS_RPC").unwrap())
         .await
         .unwrap()
+}
+
+async fn get_http_client() -> Provider<Http> {
+    Provider::<Http>::try_from(
+        dotenv::var("HTTP_RPC").unwrap().as_str()
+    ).expect("could not instantiate HTTP Provider")
 }
 
 async fn send_to_telegram(log: FragmentNftFilter, meta: LogMeta) {

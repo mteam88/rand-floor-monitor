@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ethers::types::U256;
+use ethers::types::{H160, U256};
 
 use ethers::prelude::LogMeta;
 
@@ -21,6 +21,9 @@ pub(crate) async fn get_message(log: FragmentNftFilter, meta: LogMeta) -> String
         None => format! {"\nCollection: {:#x}", log.collection},
     };
     out.push_str(&collection_name);
+
+    let mu_token_derived_price = get_mu_token_derived_price(format!("{:#x}", log.collection)).await;
+    out.push_str(&mu_token_derived_price);
 
     // create links for each token id
     for token_id in log.token_ids {
@@ -51,6 +54,60 @@ pub(crate) async fn get_message(log: FragmentNftFilter, meta: LogMeta) -> String
         let top_bid = get_top_bid(format!("{:#x}", log.collection), token_id).await;
         out.push_str(&format!("{}", top_bid));
     }
+
+    out
+}
+
+pub(crate) async fn get_mu_token_derived_price(collection: String) -> String {
+    // use ethers RPC to call the `collectionInfo` function on the flooring contract for the given collection
+
+    let client = crate::get_http_client().await;
+
+    let flooring = crate::FlooringInterface::new(
+        "0x8ad7892f15e6a3a1c0eecf83c30f414227434540"
+            .parse::<H160>()
+            .unwrap(),
+        client.into(),
+    );
+
+    let collection_info = flooring
+        .collection_info(collection.parse::<H160>().unwrap())
+        .await
+        .unwrap();
+
+    let mu_token_address = collection_info.0;
+
+    // now get the mu token price from moralis
+    let client = reqwest::Client::new();
+
+    let url = format! {"https://deep-index.moralis.io/api/v2.2/erc20/{:#x}/price?chain=eth", mu_token_address};
+
+    let req = client
+        .get(url)
+        .header("accept", "application/json")
+        .header("X-API-Key", dotenv::var("MORALIS_API_KEY").unwrap());
+
+    let res = req.send().await.unwrap();
+
+    // get json from response
+
+    let json = res.json::<serde_json::Value>().await.unwrap();
+
+    let mu_token_price = json["nativePrice"].as_object().unwrap()["value"]
+        .as_str()
+        .unwrap();
+
+    println!("mu_token_price: {:?}", mu_token_price);
+
+    let mu_token_price = mu_token_price.parse::<f64>().unwrap();
+
+    let nft_derived_price = mu_token_price * 1_000_000_f64 / 10f64.powi(18);
+
+    let mu_token_name = json["tokenName"].as_str().unwrap();
+
+    let dexscreener_link = format! {"https://dexscreener.com/ethereum/{:#x}", mu_token_address};
+
+    let out = format! {"\n<a href={:?}>1M {} price: {} ETH</a>", dexscreener_link, mu_token_name, nft_derived_price};
 
     out
 }
