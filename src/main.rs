@@ -192,6 +192,10 @@ async fn slug(collection: &String) -> Option<String> {
             "0x8a90cab2b38dba80c64b7734e58ee1db38b8992e".to_string(),
             "doodles-official".to_string(),
         );
+        inner.insert(
+            "0x23581767a106ae21c074b2276d25e5c3e136a68b".to_string(),
+            "proof-moonbirds".to_string(),
+        );
         inner
     };
 
