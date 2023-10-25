@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Build an Event by type. We are not tied to a contract instance. We use builder functions to
     // refine the event filter
     let event = Contract::event_of_type::<FragmentNftFilter>(client)
-        .from_block(18425563)
+//        .from_block(18425563)
         .address(ValueOrArray::Array(vec![FLOORING.parse()?]));
 
     let mut stream = event.subscribe_with_meta().await?;
@@ -57,10 +57,18 @@ async fn send_to_telegram(log: FragmentNftFilter, meta: LogMeta) {
     let bot = Bot::new(dotenv::var("TELEGRAM_BOT_TOKEN").unwrap());
     // set parsemode to html
     let bot = bot.parse_mode(teloxide::types::ParseMode::Html);
-    bot.send_message("@flooring_monitor".to_string(), get_log(log, meta).await)
+    match bot
+        .send_message("@flooring_monitor".to_string(), get_log(log, meta).await)
         .send()
         .await
-        .unwrap();
+    {
+        Ok(_) => println!("Message sent"),
+        Err(e) => {
+            println!("Error sending message: {:?}", e);
+            // sleep for 35 seconds to avoid spamming telegram
+            tokio::time::sleep(tokio::time::Duration::from_secs(35)).await;
+        }
+    }
 }
 
 async fn get_log(log: FragmentNftFilter, meta: LogMeta) -> String {
@@ -82,7 +90,11 @@ async fn get_log(log: FragmentNftFilter, meta: LogMeta) -> String {
     // create links for each token id
     for token_id in log.token_ids {
         let blur_link = format!("https://blur.io/asset/{:#x}/{}", log.collection, token_id);
-        let blur_link = format!("\n\n<a href=\"{}\">blur: {}</a>", blur_link, token_id);
+        let blur_link = format!(
+            "\n\n<a href=\"{}\">blur: {}</a>",
+            blur_link,
+            token_id,
+        );
         out.push_str(&blur_link);
 
         let flooring_link = format!(
@@ -103,7 +115,7 @@ async fn get_log(log: FragmentNftFilter, meta: LogMeta) -> String {
         out.push_str(&opensea_pro_link);
 
         let valuation = get_valuation(format!("{:#x}", log.collection), token_id).await;
-        out.push_str(&format!("{}", valuation));
+        out.push_str(valuation.as_str());
     }
 
     out
@@ -127,27 +139,57 @@ async fn get_valuation(collection: String, token_id: U256) -> String {
                 .header("accept", "application/json");
 
             let res = req.send().await.unwrap();
-            println!("res: {:#?}", res);
 
             // get json from response
             let json = res.json::<serde_json::Value>().await.unwrap();
-            let valuation = json["valuation"].as_object().unwrap();
+
+            // if valuation is None, return after printing error
+            let valuation = match json["valuation"].as_object() {
+                Some(valuation) => valuation,
+                None => {
+                    println!("Error getting valuation: {:?}", json);
+                    return "\nError getting valuation ):".to_string();
+                }
+            };
 
             // get valuation.price from json
             let price = valuation["price"].as_str().unwrap();
             // get valuation.currency from json
             let currency = valuation["currency"].as_str().unwrap();
 
+            let url = format! {"https://api.deepnftvalue.com/v1/collections/{}", slug};
+
+            let req = client
+                .get(url)
+                .header(
+                    reqwest::header::AUTHORIZATION,
+                    dotenv::var("DEEP_API_KEY").unwrap(),
+                )
+                .header("accept", "application/json");
+
+            let res = req.send().await.unwrap();
+
+            // get json from response
+            let json = res.json::<serde_json::Value>().await.unwrap();
+
+            // if valuation is None, return after printing error
+            let floor = match json["floor_price"].as_str() {
+                Some(floor) => floor,
+                None => {
+                    println!("Error getting floor: {:?}", json);
+                    return "\nError getting floor ):".to_string();
+                }
+            };
+
             // create link to deepnftvalue
+            let url = format! {"https://deepnftvalue.com/asset/{}/{}", slug, token_id};
 
             format!(
-                "\n<a href=\"{}\">DeepNFTValue: {} {}</a>",
-                format! {"https://deepnftvalue.com/asset/{}/{}", slug, token_id},
-                price,
-                currency
+                "\n<a href=\"{}\">DeepNFTValue: {} {}; floor: {}</a>",
+                url, price, currency, floor
             )
         }
-        None => format! {"\nCollection is not on DeepNFTValue ):"},
+        None => "\nCollection is not on DeepNFTValue ):".to_string(),
     };
 
     details
