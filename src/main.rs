@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Build an Event by type. We are not tied to a contract instance. We use builder functions to
     // refine the event filter
     let event = Contract::event_of_type::<FragmentNftFilter>(client)
-//        .from_block(18425563)
+//        .from_block(18429198)
         .address(ValueOrArray::Array(vec![FLOORING.parse()?]));
 
     let mut stream = event.subscribe_with_meta().await?;
@@ -90,11 +90,7 @@ async fn get_log(log: FragmentNftFilter, meta: LogMeta) -> String {
     // create links for each token id
     for token_id in log.token_ids {
         let blur_link = format!("https://blur.io/asset/{:#x}/{}", log.collection, token_id);
-        let blur_link = format!(
-            "\n\n<a href=\"{}\">blur: {}</a>",
-            blur_link,
-            token_id,
-        );
+        let blur_link = format!("\n\n<a href=\"{}\">blur: {}</a>", blur_link, token_id,);
         out.push_str(&blur_link);
 
         let flooring_link = format!(
@@ -116,7 +112,40 @@ async fn get_log(log: FragmentNftFilter, meta: LogMeta) -> String {
 
         let valuation = get_valuation(format!("{:#x}", log.collection), token_id).await;
         out.push_str(valuation.as_str());
+
+        let top_bid = get_top_bid(format!("{:#x}", log.collection), token_id).await;
+        out.push_str(&format!("{}", top_bid));
     }
+
+    out
+}
+
+async fn get_top_bid(collection: String, token_id: U256) -> String {
+    let client = reqwest::Client::new();
+
+    let url = format! {"https://api.reservoir.tools/orders/bids/v6?token={}%3A{}&status=active&normalizeRoyalties=true&sortBy=price&limit=1&displayCurrency=0x0000000000000000000000000000000000000000", collection, token_id};
+
+    let req = client
+        .get(url)
+        .header("accept", "application/json")
+        .header("x-api-key", dotenv::var("RESERVOIR_API_KEY").unwrap());
+
+    let res = req.send().await.unwrap();
+
+    // get json from response
+
+    let json = res.json::<serde_json::Value>().await.unwrap();
+
+    let top_bid = json["orders"][0]["price"]["netAmount"]["decimal"].to_string();
+
+    let top_bid_url = json["orders"][0]["source"]["url"].to_string();
+
+    let top_bid_kind = json["orders"][0]["source"]["name"].to_string();
+
+    let out = format!(
+        "\n<a href={}>Top Bid: {} ETH on {}</a>",
+        top_bid_url, top_bid, top_bid_kind
+    );
 
     out
 }
