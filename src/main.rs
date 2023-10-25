@@ -29,7 +29,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Build an Event by type. We are not tied to a contract instance. We use builder functions to
     // refine the event filter
     let event = Contract::event_of_type::<FragmentNftFilter>(client)
-        // .from_block(18413801)
+        .from_block(18425563)
         .address(ValueOrArray::Array(vec![FLOORING.parse()?]));
 
     let mut stream = event.subscribe_with_meta().await?;
@@ -127,6 +127,7 @@ async fn get_valuation(collection: String, token_id: U256) -> String {
                 .header("accept", "application/json");
 
             let res = req.send().await.unwrap();
+            println!("res: {:#?}", res);
 
             // get json from response
             let json = res.json::<serde_json::Value>().await.unwrap();
@@ -156,10 +157,10 @@ async fn slug(collection: &String) -> Option<String> {
     // hashmap of collection addresses to slugs
     let collection_slugs: HashMap<String, String> = {
         let mut inner = HashMap::new();
-        inner.insert(
-            "0xb6a37b5d14d502c3ab0ae6f3a0e058bc9517786e".to_string(),
-            "azukielementals".to_string(),
-        );
+        // inner.insert(
+        //     "0xb6a37b5d14d502c3ab0ae6f3a0e058bc9517786e".to_string(),
+        //     "azukielementals".to_string(),
+        // );
         inner.insert(
             "0xbd3531da5cf5857e7cfaa92426877b022e612cf8".to_string(),
             "pudgypenguins".to_string(),
