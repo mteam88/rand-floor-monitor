@@ -57,7 +57,7 @@ impl Display for Message {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // create the message html that includes the information about the collection and the tokens
         let mut message = formatdoc!(
-            r#"<a href={0}> TX </a> with {1} ETH profit
+            r#"<a href="{0}"> TX </a> with {1} ETH profit
             {2}
             {3}
 
