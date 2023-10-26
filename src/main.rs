@@ -73,6 +73,14 @@ async fn get_http_client() -> Provider<Http> {
 }
 
 async fn send_to_telegram(log: FragmentNftFilter, meta: LogMeta) {
+    let msg = message::Message::default().fill_message(log, meta).await;
+    println!("Total Profit: {}", msg.total_profit);
+
+    if msg.total_profit < dotenv::var("MINIMUM_PROFIT").unwrap().parse::<f64>().unwrap() {
+        println!("Profit too low, not sending message");
+        return;
+    }
+
     // create Bot
     let bot = Bot::new(dotenv::var("TELEGRAM_BOT_TOKEN").unwrap());
     // set parsemode to html
@@ -80,7 +88,7 @@ async fn send_to_telegram(log: FragmentNftFilter, meta: LogMeta) {
     match bot
         .send_message(
             "@flooring_monitor".to_string(),
-            message::Message::default().fill_message(log, meta).await.to_string(),
+            msg.to_string(),
         )
         .send()
         .await

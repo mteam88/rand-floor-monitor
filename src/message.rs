@@ -14,6 +14,7 @@ pub(crate) struct Message {
     etherscan_link: String,
     collection_header: String,
     mu_token: MuToken,
+    pub total_profit: f64,
     tokens: Vec<Token>,
 }
 
@@ -25,6 +26,7 @@ pub(crate) struct Token {
     opensea_pro_link: String,
     valuation: Option<Valuation>,
     top_bid: TopBid,
+    profit: Option<f64>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -55,12 +57,13 @@ impl Display for Message {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         // create the message html that includes the information about the collection and the tokens
         let mut message = formatdoc!(
-            r#"{0}
-            {1}
+            r#"<a href={0}> TX </a> with {1} ETH profit
             {2}
+            {3}
 
             "#,
             self.etherscan_link,
+            self.total_profit,
             self.collection_header,
             self.mu_token
         );
@@ -87,7 +90,7 @@ impl Display for Message {
                 token.opensea_pro_link,
                 valuation,
                 token.top_bid,
-                token.top_bid.price - self.mu_token.derived_price
+                token.profit.unwrap()
             ));
         }
 
@@ -159,7 +162,7 @@ impl Message {
 
         // create links for each token id
         for token_id in log.token_ids {
-            let token = Token {
+            let mut token = Token {
                 token_id,
                 blur_link: format!("https://blur.io/asset/{collection_address}/{}", token_id),
                 flooring_link: format!(
@@ -172,10 +175,21 @@ impl Message {
                 ),
                 valuation: self.get_valuation(&collection_address, token_id).await,
                 top_bid: self.get_top_bid(&collection_address, token_id).await,
+                profit: None,
             };
+
+            token.profit = Some(token.top_bid.price - self.mu_token.derived_price);
 
             self.tokens.push(token);
         }
+
+        // calculate total profit, only including tokens with positive profit
+        self.total_profit = self
+            .tokens
+            .iter()
+            .filter(|token| token.profit.unwrap() > 0f64)
+            .map(|token| token.profit.unwrap())
+            .sum();
 
         self
     }
