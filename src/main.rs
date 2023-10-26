@@ -76,7 +76,7 @@ async fn send_to_telegram(log: FragmentNftFilter, meta: LogMeta) {
     let msg = message::Message::default().fill_message(log, meta).await;
     println!("Total Profit: {}", msg.total_profit);
 
-    if msg.total_profit < dotenv::var("MINIMUM_PROFIT").unwrap().parse::<f64>().unwrap() {
+    if msg.total_profit <= dotenv::var("MINIMUM_PROFIT").unwrap().parse::<f64>().unwrap() {
         println!("Profit too low, not sending message");
         return;
     }
