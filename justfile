@@ -1,7 +1,7 @@
 set dotenv-load
 
 start:
-    watch -n 10 cargo run --release >> out.log 2>> out.log &
+    bash start.sh
 
 dev:
     cargo run >> out.log 2>> out.log
