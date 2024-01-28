@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
+use ethers::abi::Address;
 use indoc::formatdoc;
 
 use ethers::types::{H160, U256};
 
 use ethers::prelude::LogMeta;
+use reqwest::header;
+use serde_json::json;
 
 use crate::FragmentNftFilter;
 
@@ -30,28 +33,24 @@ pub(crate) struct Token {
 }
 
 #[derive(Clone, Debug, Default)]
-pub(crate)
-struct Valuation {
+pub(crate) struct Valuation {
     url: String,
     price: f64,
 }
 
 #[derive(Clone, Debug, Default)]
-pub(crate)
-struct TopBid {
+pub(crate) struct TopBid {
     url: String,
     kind: String,
     price: f64,
 }
 
 #[derive(Clone, Debug, Default)]
-pub(crate)
-struct MuToken {
+pub(crate) struct MuToken {
     dexscreener_link: String,
     name: String,
     derived_price: f64,
 }
-
 
 impl Display for Message {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -71,9 +70,7 @@ impl Display for Message {
         for token in &self.tokens {
             let valuation = match &token.valuation {
                 Some(valuation) => valuation.to_string(),
-                None => {
-                    "Error getting DeepNFTValue valuation for token".to_string()
-                }
+                None => "Error getting DeepNFTValue valuation for token".to_string(),
             };
 
             message.push_str(&formatdoc!(
@@ -157,8 +154,7 @@ impl Message {
             None => format! {"\nCollection: {collection_address}"},
         };
 
-        self.mu_token =
-            self.get_mu_token_details(&collection_address).await;
+        self.mu_token = self.get_mu_token_details(&collection_address).await;
 
         // create links for each token id
         for token_id in log.token_ids {
@@ -213,42 +209,120 @@ impl Message {
 
         let mu_token_address = collection_info.0;
 
-        // now get the mu token price from moralis
-        let client = reqwest::Client::new();
+        // now get the mu token price from paraswap api
+        let nft_derived_price = Self::get_token_price(mu_token_address).await.unwrap();
 
-        let url = format! {"https://deep-index.moralis.io/api/v2.2/erc20/{:#x}/price?chain=eth", mu_token_address};
+        let mu_token_name = "mu token";
 
-        let req = client
-            .get(url)
-            .header("accept", "application/json")
-            .header("X-API-Key", dotenv::var("MORALIS_API_KEY").unwrap());
-
-        let res = req.send().await.unwrap();
-
-        // get json from response
-
-        let json = res.json::<serde_json::Value>().await.unwrap();
-
-        let mu_token_price = json["nativePrice"].as_object().unwrap()["value"]
-            .as_str()
-            .unwrap();
-
-        let mu_token_price = mu_token_price.parse::<f64>().unwrap();
-
-        let nft_derived_price = mu_token_price * 1_000_000_f64 / 10f64.powi(18);
-
-        let mu_token_name = json["tokenName"].as_str().unwrap();
-
-        let dexscreener_link = format!(
-            "https://dexscreener.com/ethereum/{:#x}",
-            mu_token_address
-        );
+        let dexscreener_link = format!("https://dexscreener.com/ethereum/{:#x}", mu_token_address);
 
         MuToken {
             dexscreener_link,
             name: mu_token_name.to_string(),
             derived_price: nft_derived_price,
         }
+    }
+
+    pub(crate) async fn get_token_price(address: Address) -> eyre::Result<f64> {
+        let address = format!("{:#x}", address);
+        
+        
+        // Define the API endpoint URL
+        let url = format!("https://swap-api.defillama.com/dexAggregatorQuote?protocol=ParaSwap&chain=ethereum&from=0x0000000000000000000000000000000000000000&to={address}&amount=0&api_key=nsr_UYWxuvj1hOCgHxJhDEKZ0g30c4Be3I5fOMBtFAA");
+
+
+        // Construct the request payload
+        let payload = json!(
+            {
+                "gasPriceData": {
+                    "lastBaseFeePerGas": {
+                        "type": "BigNumber",
+                        "hex": "0x226e79b2d4"
+                    },
+                    "maxFeePerGas": {
+                        "type": "BigNumber",
+                        "hex": "0x05365b94a8"
+                    },
+                    "maxPriorityFeePerGas": {
+                        "type": "BigNumber",
+                        "hex": "0x59682f00"
+                    },
+                    "gasPrice": {
+                        "type": "BigNumber",
+                        "hex": "0x026e88f514"
+                    },
+                    "formatted": {
+                        "gasPrice": "10444403988",
+                        "maxFeePerGas": "22386807976",
+                        "maxPriorityFeePerGas": "1500000000"
+                    }
+                },
+                "userAddress": "0x35F95dDec37A8b6FAA795B143cbcF233D468f66F",
+                "amount": "",
+                "fromToken": {
+                    "mcap": 9007199254740991_i64,
+                    "address": "0x0000000000000000000000000000000000000000",
+                    "chainId": 1,
+                    "name": "Ethereum",
+                    "symbol": "ETH",
+                    "logoURI": "https://token-icons.llamao.fi/icons/tokens/1/0x0000000000000000000000000000000000000000?h=20&w=20",
+                    "decimals": 18,
+                    "label": "ETH",
+                    "value": "0x0000000000000000000000000000000000000000",
+                    "geckoId": null,
+                    "logoURI2": "https://icons.llamao.fi/icons/chains/rsz_ethereum?w=48&h=48",
+                    "volume24h": 0
+                },
+                "toToken": {
+                    "name": "μLilPudgys",
+                    "label": "μLP",
+                    "symbol": "μLP",
+                    "address": format!("{}", address),
+                    "value": format!("{}", address),
+                    "decimals": 18,
+                    "logoURI": "https://token-icons.llamao.fi/icons/tokens/1/0x6cd7fC3118A8FFa40AF0f99f3cbda54b0c6d4D1d?h=20&w=20",
+                    "chainId": 1,
+                    "geckoId": null
+                },
+                "slippage": "0.5",
+                "isPrivacyEnabled": true,
+                "amountOut": "1000000000000000000000000"
+            }
+        );
+
+        // Create a client to send the request
+        let client = reqwest::Client::new();
+
+        // Build the request with headers and payload
+        let req = client
+            .post(url)
+            .header(header::USER_AGENT, "idk")
+            .header(header::CONTENT_TYPE, "application/json")
+            .header("authority", "swap-api.defillama.com")
+            .header("accept", "*/*")
+            .header("accept-language", "en-US,en;q=0.9")
+            .header("origin", "https://swap.defillama.com")
+            .header("priority", "u=1, i")
+            .header("referer", "https://swap.defillama.com/")
+            .header("sec-fetch-site", "same-site")
+            .body(payload.to_string());
+
+        let req = req.build()?;
+
+        // Send the request and await a response
+        let response = client.execute(req).await?;
+
+        // get json from response
+        let json = response.json::<serde_json::Value>().await?;
+
+        // get price from json
+        let price: f64 = json["amountIn"].as_str().unwrap().parse()?;
+
+        let price = price / 10f64.powi(18);
+
+        println!("price: {}", price);
+
+        Ok(price)
     }
 
     pub(crate) async fn get_top_bid(&self, collection: &str, token_id: U256) -> TopBid {
@@ -280,7 +354,11 @@ impl Message {
         }
     }
 
-    pub(crate) async fn get_valuation(&self, collection: &str, token_id: U256) -> Option<Valuation> {
+    pub(crate) async fn get_valuation(
+        &self,
+        collection: &str,
+        token_id: U256,
+    ) -> Option<Valuation> {
         let details = match self.slug(collection).await {
             Some(slug) => {
                 // use deepnftvalue api
@@ -307,7 +385,7 @@ impl Message {
                     Some(valuation) => valuation,
                     None => {
                         println!("Error getting valuation: {:?}", json);
-                        return None
+                        return None;
                     }
                 };
 
